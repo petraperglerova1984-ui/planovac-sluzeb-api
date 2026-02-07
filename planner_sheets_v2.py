@@ -83,14 +83,16 @@ def connect_to_sheets():
 
 
 def get_month_from_sheet_name(sheet_name: str) -> tuple:
-    mapping = {
-        "LEDEN": 1, "UNOR": 2, "BREZEN": 3, "DUBEN": 4,
-        "KVETEN": 5, "CERVEN": 6, "CERVENEC": 7, "SRPEN": 8,
-        "ZARI": 9, "RIJEN": 10, "LISTOPAD": 11, "PROSINEC": 12,
-    }
+    # DŮLEŽITÉ: Seřaď od nejdelších (aby CERVENEC byl před CERVEN!)
+    mapping = [
+        ("CERVENEC", 7), ("LISTOPAD", 11), ("PROSINEC", 12),
+        ("BREZEN", 3), ("KVETEN", 5), ("CERVEN", 6),
+        ("LEDEN", 1), ("UNOR", 2), ("DUBEN", 4), ("SRPEN", 8),
+        ("ZARI", 9), ("RIJEN", 10),
+    ]
     
     name_norm = norm_text(sheet_name)
-    for month_name, month_num in mapping.items():
+    for month_name, month_num in mapping:
         if month_name in name_norm:
             print(f"DEBUG: List {sheet_name} -> měsíc {month_num}")
             return 2026, month_num
@@ -267,7 +269,8 @@ def plan_shifts_v2(sheet_name: str):
         fixed[station_idx][di] = "R"
         fixed_hours[station_idx] += HOURS_FIXED["R"]
     
-    print(f"✓ Staniční má {fixed_hours[station_idx]}h")
+    r_count = sum(1 for v in fixed[station_idx] if v == "R")
+    print(f"✓ Staniční má {fixed_hours[station_idx]}h (R na {r_count} dnů)")
     
     # NOVÝ ALGORITMUS - FÉROVÉ ROZDĚLENÍ
     print(f"\n[7/7] Plánuji...")
