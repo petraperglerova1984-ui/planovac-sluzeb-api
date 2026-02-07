@@ -5,6 +5,7 @@ Google Sheets adapter pro planner
 """
 
 import os
+import json
 import calendar
 import datetime
 import math
@@ -15,7 +16,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # Konfigurace
-SPREADSHEET_ID = "1L3isRHcwU9LyTMYyvT24eZk52fVfCHuYupXQLQmRyyg"
+SPREADSHEET_ID = "1L3isRHcwU9LyTMYyvT24eZk52fVfCHuYupXQLQmRyyg"  # AKTUALIZOVANÉ ID!
 CREDENTIALS_FILE = "credentials.json"
 
 SHEET_ZAM = "ZAMESTNANCI"
@@ -106,9 +107,7 @@ def prev_year_month(year: int, month: int):
 
 
 def connect_to_sheets():
-    import json
-    import os
-    
+    """Připojí se k Google Sheets"""
     scope = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
@@ -118,13 +117,16 @@ def connect_to_sheets():
     creds_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     
     if creds_json:
+        # Na serveru - použij environment variable
         creds_dict = json.loads(creds_json)
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     else:
+        # Lokálně - použij soubor
         creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
     
     client = gspread.authorize(creds)
     return client.open_by_key(SPREADSHEET_ID)
+
 
 def detect_header(ws_values):
     """Najde hlavičku Jméno"""
@@ -322,7 +324,7 @@ def plan_shifts_from_sheets():
     except Exception as e:
         print(f"⚠ Nelze načíst předchozí měsíc ({prev_sheet_name}): {e}")
     
-    # SPUSŤ PLÁNOVÁNÍ (zde by měl běžet tvůj původní algoritmus)
+    # SPUSŤ PLÁNOVÁNÍ
     print("\n" + "=" * 60)
     print("Spouštím plánovací algoritmus...")
     print("=" * 60)
@@ -342,7 +344,8 @@ def plan_shifts_from_sheets():
     print("Zapisuji výsledky do Google Sheets...")
     print("=" * 60)
     
-    updates = []
+    # Připrav data pro batch update
+    cell_list = []
     
     for di, col_num in enumerate(plan_cols):
         for i, row_num in enumerate(people_rows):
@@ -364,17 +367,15 @@ def plan_shifts_from_sheets():
             # Zapiš výsledek
             new_value = "" if assign[i][di] == "OFF" else assign[i][di]
             
-            # Přidej do batch update
-            cell_address = gspread.utils.rowcol_to_a1(row_num, col_num)
-            updates.append({
-                'range': f'{sheet_name}!{cell_address}',
-                'values': [[new_value]]
-            })
+            # Přidej do seznamu pro update
+            cell = ws_plan.cell(row_num, col_num)
+            cell.value = new_value
+            cell_list.append(cell)
     
     # Proveď batch update (efektivnější než jednotlivé zápisy)
-    if updates:
-        print(f"✓ Zapisuji {len(updates)} buněk...")
-        ws_plan.batch_update(updates)
+    if cell_list:
+        print(f"✓ Zapisuji {len(cell_list)} buněk...")
+        ws_plan.update_cells(cell_list)
         print("✓ Zápis dokončen!")
     else:
         print("⚠ Žádné buňky k zápisu")
@@ -561,8 +562,6 @@ def run_planning_algorithm(P, D, names, target, fixed_shift, fixed, prev_tail3, 
         if sh == "N" and FORBID_N_BEFORE_ANY_PREFILL:
             if di + 1 < D and fixed_shift[i][di + 1] != "OFF":
                 return False
-        
-        # Kontrola víkendů (soft → nevynutíme, jen penalizujeme)
         
         return True
     
