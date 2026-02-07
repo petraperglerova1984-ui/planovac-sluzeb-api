@@ -274,6 +274,9 @@ def plan_shifts_v2(sheet_name: str):
     for di in range(days_in_month):
         dt = datetime.date(year, month, di + 1)
         if dt.weekday() < 5:  # po–pá
+            # Víkend? Přeskoč!
+            if dt.weekday() >= 5:
+                continue
             if fixed[station_idx][di] is None:
                 fixed[station_idx][di] = "R"
                 fixed_hours[station_idx] += HOURS_FIXED["R"]
@@ -501,19 +504,27 @@ def run_planner(employees, fixed, fixed_hours, days, year, month, station_idx):
     solutions_found = 0
     
     def calc_solution_score(sol_hours):
-        """Ohodnotí kvalitu celkového řešení"""
-        # Suma čtverců odchylek
-        total = 0.0
-        for i in range(P):
-            diff = sol_hours[i] - target[i]
-            if diff > 0:
-                # Přesčas je MNOHEM horší
-                total += (diff ** 2) * 50.0
-            else:
-                # Nedostatek je méně špatný
-                total += (abs(diff) ** 2)
-        return total
-    
+        """Ohodnotí kvalitu celkového řešení - FÉROVOST je klíč"""
+        # Spočítej rozdíly od targetu
+        diffs = [sol_hours[i] - target[i] for i in range(P)]
+        
+        # FÉROVOST: variance rozdílů (všichni musí mít podobně)
+        avg_diff = sum(diffs) / len(diffs)
+        variance = sum((d - avg_diff) ** 2 for d in diffs) / len(diffs)
+        
+        # Range (rozdíl mezi nejlepším a nejhorším)
+        range_diff = max(diffs) - min(diffs)
+        
+        # HLAVNÍ SKÓRE: férovost (1000x důležitější než ostatní)
+        fairness_score = variance * 1000.0 + range_diff * 500.0
+        
+        # Sekundární: celková suma odchylek
+        total_deviation = sum(abs(d) for d in diffs)
+        
+        # Extra penalizace za přesčasy (pokud existují)
+        overwork_penalty = sum(d ** 2 for d in diffs if d > 0) * 10.0
+        
+        return fairness_score + total_deviation + overwork_penalty
     for attempt in range(MAX_TRIES):
         # Reset
         assign = [row[:] for row in fixed]
