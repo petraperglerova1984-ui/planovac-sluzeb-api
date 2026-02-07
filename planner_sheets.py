@@ -339,18 +339,27 @@ def plan_shifts_from_sheets():
     
     assign, count, day_count, night_count, hours, busy_count = result
     
-    # ZÁPIS VÝSLEDKŮ ZPĚT DO GOOGLE SHEETS
+        # ZÁPIS VÝSLEDKŮ ZPĚT DO GOOGLE SHEETS
     print("\n" + "=" * 60)
     print("Zapisuji výsledky do Google Sheets...")
     print("=" * 60)
     
-    import time
-    
-    # Zapisujeme po menších dávkách
-    BATCH_SIZE = 50
+    # Připravíme všechny hodnoty najednou
+    # Vytvoříme 2D mřížku s výsledky
     updates_count = 0
-    all_updates = []
     
+    # Najdeme rozsah který potřebujeme aktualizovat
+    min_row = min(people_rows[1:]) if len(people_rows) > 1 else people_rows[0]  # Přeskočíme první (staniční)
+    max_row = max(people_rows)
+    min_col = min(plan_cols)
+    max_col = max(plan_cols)
+    
+    # Vytvoříme prázdnou mřížku
+    num_rows = max_row - min_row + 1
+    num_cols = max_col - min_col + 1
+    grid = [[None for _ in range(num_cols)] for _ in range(num_rows)]
+    
+    # Naplníme hodnoty které chceme zapsat
     for di, col_num in enumerate(plan_cols):
         for i, row_num in enumerate(people_rows):
             # Přeskoč staniční sestru
@@ -368,34 +377,29 @@ def plan_shifts_from_sheets():
             if orig_value not in (None, "", 0):
                 continue
             
-            # Zapiš výsledek
+            # Zapiš výsledek do mřížky
             new_value = "" if assign[i][di] == "OFF" else assign[i][di]
-            all_updates.append((row_num, col_num, new_value))
+            
+            grid_row = row_num - min_row
+            grid_col = col_num - min_col
+            
+            if new_value:  # Jen pokud není prázdné
+                grid[grid_row][grid_col] = new_value
+                updates_count += 1
     
-    # Zapiš po dávkách
-    if all_updates:
-        print(f"✓ Celkem {len(all_updates)} buněk k zápisu...")
+    # Zapiš celou mřížku najednou
+    if updates_count > 0:
+        print(f"✓ Zapisuji {updates_count} buněk najednou...")
         
-        for batch_start in range(0, len(all_updates), BATCH_SIZE):
-            batch = all_updates[batch_start:batch_start + BATCH_SIZE]
-            
-            # Zapiš každou buňku zvlášť (spolehlivější)
-            for row_num, col_num, value in batch:
-                try:
-                    ws_plan.update_cell(row_num, col_num, value)
-                    updates_count += 1
-                except Exception as e:
-                    print(f"  ⚠ Chyba při zápisu buňky ({row_num},{col_num}): {e}")
-            
-            if (batch_start + BATCH_SIZE) % 100 == 0:
-                print(f"  ✓ Zapsáno {updates_count}/{len(all_updates)} buněk...")
-                time.sleep(1)  # Pauza každých 100 buněk
+        start_cell = gspread.utils.rowcol_to_a1(min_row, min_col)
+        end_cell = gspread.utils.rowcol_to_a1(max_row, max_col)
+        range_notation = f"{start_cell}:{end_cell}"
         
-        print(f"✓ Zápis dokončen! Celkem {updates_count} buněk.")
+        ws_plan.update(range_notation, grid, value_input_option='RAW')
+        print(f"✓ Zápis dokončen! {updates_count} buněk.")
     else:
         print("⚠ Žádné buňky k zápisu")
-    
-    
+
     # STATISTIKY
     print("\n" + "=" * 60)
     print("STATISTIKY")
