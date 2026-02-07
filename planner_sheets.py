@@ -39,9 +39,9 @@ BLOCK_VALUES = {"R", "DOV", "AMB", "GEN", "K", "COS", "C", "S", "POŽ"}
 HOURS_FIXED = {"R": 8.0, "AMB": 8.0, "S": 8.0, "COS": 7.5, "K": 6.0}
 
 JITTER = 0.02
-BEHIND_W = 1.1
-OVERDUE_W = 1.3
-MIX_W = 1.6
+BEHIND_W = 5.0  # ZVÝŠENO - silná penalizace když má málo hodin
+OVERDUE_W = 8.0  # ZVÝŠENO - ještě silnější penalizace přesčasů
+MIX_W = 0.5  # SNÍŽENO - mix D/N je méně důležitý než hodiny
 
 SECOND_DAY_AFTER_N_PENALTY = 2.2
 N_AFTER_D_BONUS = 1.4
@@ -495,6 +495,7 @@ def run_planning_algorithm(P, D, names, target, fixed_shift, fixed, prev_tail3, 
         if 0 <= wd <= 4 and fixed_shift[station_pi][di] == "OFF":
             fixed_shift[station_pi][di] = "R"
             fixed[station_pi] += HOURS_FIXED["R"]
+            # assign je už inicializovaný s fixed_shift, takže R je tam
     
     # Inicializuj stav
     assign = [row[:] for row in fixed_shift]
@@ -781,17 +782,16 @@ def run_planning_algorithm(P, D, names, target, fixed_shift, fixed, prev_tail3, 
         return sum((v - avg) ** 2 for v in vals) / len(vals)
     
     def _fairness_score(_day_count, _night_count, _busy_count, _tainted_count):
+        # PRIORITA: minimalizovat odchylky od target hodin
+        # Počítej sumu čtverců odchylek (hours[i] - target[i])
+        hours_diff_sq = sum((hours[i] - target[i])**2 for i in range(P) if target[i] > 0)
+        
+        # Variance pro sekundární faktory
         vN = _variance(_night_count)
         vW = _variance(_busy_count)
-        vT = _variance(_tainted_count)
-        vD = _variance(_day_count)
         
-        rN = (max(_night_count) - min(_night_count)) if _night_count else 0
-        rW = (max(_busy_count) - min(_busy_count)) if _busy_count else 0
-        rT = (max(_tainted_count) - min(_tainted_count)) if _tainted_count else 0
-        rD = (max(_day_count) - min(_day_count)) if _day_count else 0
-        
-        return (4.0 * vN + 2.0 * vW + 2.0 * vT + 1.0 * vD) + (3.0 * rN + 2.0 * rW + 2.0 * rT + 0.5 * rD)
+        # Hlavní priorita: přesnost hodin (100x důležitější než ostatní)
+        return hours_diff_sq * 100.0 + vN * 2.0 + vW * 1.0
     
     best = None
     best_score = None
