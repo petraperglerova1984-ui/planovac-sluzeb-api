@@ -344,12 +344,16 @@ def plan_shifts_from_sheets():
     print("Zapisuji výsledky do Google Sheets...")
     print("=" * 60)
     
-    # Připrav data pro batch update
-    cell_list = []
+    import time
+    
+    # Zapisujeme po menších dávkách
+    BATCH_SIZE = 50
+    updates_count = 0
+    all_updates = []
     
     for di, col_num in enumerate(plan_cols):
         for i, row_num in enumerate(people_rows):
-            # Přeskoč staniční sestru (první v seznamu)
+            # Přeskoč staniční sestru
             if i == 0:
                 continue
             
@@ -366,19 +370,31 @@ def plan_shifts_from_sheets():
             
             # Zapiš výsledek
             new_value = "" if assign[i][di] == "OFF" else assign[i][di]
-            
-            # Přidej do seznamu pro update
-            cell = ws_plan.cell(row_num, col_num)
-            cell.value = new_value
-            cell_list.append(cell)
+            all_updates.append((row_num, col_num, new_value))
     
-    # Proveď batch update (efektivnější než jednotlivé zápisy)
-    if cell_list:
-        print(f"✓ Zapisuji {len(cell_list)} buněk...")
-        ws_plan.update_cells(cell_list)
-        print("✓ Zápis dokončen!")
+    # Zapiš po dávkách
+    if all_updates:
+        print(f"✓ Celkem {len(all_updates)} buněk k zápisu...")
+        
+        for batch_start in range(0, len(all_updates), BATCH_SIZE):
+            batch = all_updates[batch_start:batch_start + BATCH_SIZE]
+            
+            # Zapiš každou buňku zvlášť (spolehlivější)
+            for row_num, col_num, value in batch:
+                try:
+                    ws_plan.update_cell(row_num, col_num, value)
+                    updates_count += 1
+                except Exception as e:
+                    print(f"  ⚠ Chyba při zápisu buňky ({row_num},{col_num}): {e}")
+            
+            if (batch_start + BATCH_SIZE) % 100 == 0:
+                print(f"  ✓ Zapsáno {updates_count}/{len(all_updates)} buněk...")
+                time.sleep(1)  # Pauza každých 100 buněk
+        
+        print(f"✓ Zápis dokončen! Celkem {updates_count} buněk.")
     else:
         print("⚠ Žádné buňky k zápisu")
+    
     
     # STATISTIKY
     print("\n" + "=" * 60)
