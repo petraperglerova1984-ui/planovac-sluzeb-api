@@ -15,7 +15,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # Konfigurace
-SPREADSHEET_ID = "18BhNY5dIg0kSiazIyxNjivYFf-DsKZt8"
+SPREADSHEET_ID = "1L3isRHcwU9LyTMYyvT24eZk52fVfCHuYupXQLQmRyyg"
 CREDENTIALS_FILE = "credentials.json"
 
 SHEET_ZAM = "ZAMESTNANCI"
