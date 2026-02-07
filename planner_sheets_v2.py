@@ -160,7 +160,7 @@ def load_employee_types(wb, employees):
         return {}
 
 
-def plan_shifts_v3(sheet_name: str):
+def plan_shifts_v2(sheet_name: str):
     """
     V3 - Férové rozdělení
     """
@@ -229,12 +229,18 @@ def plan_shifts_v3(sheet_name: str):
                         if val in HOURS_FIXED:
                             fixed_hours[i] += HOURS_FIXED[val]
     
-    # R pro staniční (JEN po-pá!)
+    # R pro staniční (JEN po-pá, NE víkend ani svátky!)
     for di in range(days_in_month):
         dt = datetime.date(year, month, di + 1)
-        if dt.weekday() < 5 and fixed[station_idx][di] is None:
-            fixed[station_idx][di] = "R"
-            fixed_hours[station_idx] += HOURS_FIXED["R"]
+        # Kontrola: je to pracovní den? (po-pá a NE víkend)
+        if dt.weekday() >= 5:  # Sobota nebo neděle
+            continue
+        # Kontrola: už tam není něco jiného?
+        if fixed[station_idx][di] is not None:
+            continue
+        # Přidej R
+        fixed[station_idx][di] = "R"
+        fixed_hours[station_idx] += HOURS_FIXED["R"]
     
     print(f"✓ Staniční má {fixed_hours[station_idx]}h")
     
@@ -402,5 +408,5 @@ def fair_planner(employees, fixed, fixed_hours, days, station_idx):
 
 
 if __name__ == "__main__":
-    result = plan_shifts_v3("CERVEN")
+    result = plan_shifts_v2("CERVEN")
     print("\n✓ HOTOVO!")
