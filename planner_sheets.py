@@ -189,6 +189,7 @@ def plan_shifts_from_sheets():
     year = int(settings_data[0][0]) if settings_data and settings_data[0] else 2026
     month_name = settings_data[0][1] if settings_data and len(settings_data[0]) > 1 else "LEDEN"
     month = month_num_from_name(month_name)
+    print(f"DEBUG: Hledám měsíc: {month_name} -> normalizováno: {norm_text(month_name)}")
     
     print(f"✓ Rok: {year}, Měsíc: {month_name} ({month})")
     
@@ -243,11 +244,14 @@ def plan_shifts_from_sheets():
     fond_0s = 0.0
     
     for row in fondy_data[1:]:  # Přeskoč hlavičku
+        print(f"DEBUG FONDY: Celkem {len(fondy_data)} řádků v FONDY_HODIN")
         if len(row) > 0:
             row_month = norm_text(row[0])
+            print(f"  Řádek: {row[0]} -> normalizováno: {row_month}")
             month_normalized = norm_text(month_name)
             if row_month == month_normalized or month_normalized in row_month or row_month in month_normalized:
                 fond_1s = to_float(row[1]) if len(row) > 1 else 0.0
+                print(f"  ✓ NAŠEL! fond_1s={fond_1s}, fond_0s={fond_0s}")
                 fond_0s = to_float(row[2]) if len(row) > 2 else 0.0
                 break
     
