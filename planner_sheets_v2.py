@@ -27,6 +27,29 @@ HOURS_FIXED = {"R": 8.0, "AMB": 8.0, "S": 8.0, "COS": 7.5, "K": 6.0}
 MAX_NURSE_ROW = 46
 
 
+# České svátky 2026
+HOLIDAYS_2026 = {
+    (1, 1): "Nový rok",
+    (4, 13): "Velikonoční pondělí",  # Pohyblivý - pro 2026
+    (5, 1): "Svátek práce",
+    (5, 8): "Den vítězství",
+    (7, 5): "Den slovanských věrozvěstů Cyrila a Metoděje",
+    (7, 6): "Den upálení mistra Jana Husa",
+    (9, 28): "Den české státnosti",
+    (10, 28): "Den vzniku samostatného československého státu",
+    (11, 17): "Den boje za svobodu a demokracii",
+    (12, 24): "Štědrý den",
+    (12, 25): "1. svátek vánoční",
+    (12, 26): "2. svátek vánoční",
+}
+
+def is_holiday(year, month, day):
+    """Kontrola zda je den svátek"""
+    return (month, day) in HOLIDAYS_2026
+
+
+
+
 def norm_text(s: str) -> str:
     s = (s or "").strip().upper()
     s = unicodedata.normalize("NFKD", s)
@@ -69,6 +92,7 @@ def get_month_from_sheet_name(sheet_name: str) -> tuple:
     name_norm = norm_text(sheet_name)
     for month_name, month_num in mapping.items():
         if month_name in name_norm:
+            print(f"DEBUG: List {sheet_name} -> měsíc {month_num}")
             return 2026, month_num
     
     raise RuntimeError(f"Nerozumím názvu listu: '{sheet_name}'")
@@ -176,6 +200,7 @@ def plan_shifts_v2(sheet_name: str):
     print(f"\n[2/7] Zpracovávám list '{sheet_name}'...")
     year, month = get_month_from_sheet_name(sheet_name)
     days_in_month = calendar.monthrange(year, month)[1]
+    print(f"DEBUG: calendar.monthrange({year}, {month}) = {calendar.monthrange(year, month)}")
     print(f"✓ Rok: {year}, Měsíc: {month}, Dní: {days_in_month}")
     
     print(f"\n[3/7] Načítám data...")
@@ -360,8 +385,11 @@ def fair_planner(employees, fixed, fixed_hours, days, station_idx):
         remaining = target[i] - hours[i]
         return remaining
     
-    # HLAVNÍ SMYČKA - den po dni
-    for di in range(D):
+    # HLAVNÍ SMYČKA - den po dni (NÁHODNÉ POŘADÍ!)
+    day_order = list(range(D))
+    random.shuffle(day_order)  # Zamíchej pořadí dnů
+    
+    for di in day_order:
         # Kolik potřebujeme?
         needed_d = REQ_D
         needed_n = REQ_N
