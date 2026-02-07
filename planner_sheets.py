@@ -245,7 +245,8 @@ def plan_shifts_from_sheets():
     for row in fondy_data[1:]:  # Přeskoč hlavičku
         if len(row) > 0:
             row_month = norm_text(row[0])
-            if month_name in row_month or norm_text(month_name) in row_month:
+            month_normalized = norm_text(month_name)
+            if row_month == month_normalized or month_normalized in row_month or row_month in month_normalized:
                 fond_1s = to_float(row[1]) if len(row) > 1 else 0.0
                 fond_0s = to_float(row[2]) if len(row) > 2 else 0.0
                 break
@@ -458,8 +459,13 @@ def run_planning_algorithm(P, D, names, target, fixed_shift, fixed, prev_tail3, 
     
     W = len(weekends)
     
-    # Staniční sestra = první v seznamu
+    # Staniční sestra = najdi podle jména
     station_pi = 0
+    for idx, name in enumerate(names):
+        if "STARA" in norm_text(name):
+            station_pi = idx
+            print(f"✓ Staniční sestra: {name} (index {idx})")
+            break
     
     # Doplň R pro staniční sestru (po–pá v plánovacím bloku)
     for di in range(D):
