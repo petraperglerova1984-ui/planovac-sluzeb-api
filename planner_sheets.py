@@ -249,7 +249,23 @@ def plan_shifts_from_sheets():
             row_month = norm_text(row[0])
             print(f"  Řádek: {row[0]} -> normalizováno: {row_month}")
             month_normalized = norm_text(month_name)
+            # Zkus najít měsíc - buď podle textu nebo podle čísla v datu
+            month_matched = False
             if row_month == month_normalized or month_normalized in row_month or row_month in month_normalized:
+                month_matched = True
+            # Zkus také podle čísla měsíce v datu (např. "01/06/2026" pro červen = měsíc 6)
+            elif "/" in row[0]:
+                try:
+                    # Pokus se extrahovat měsíc z data
+                    parts = row[0].split("/")
+                    if len(parts) >= 2:
+                        date_month = int(parts[1]) if len(parts[0]) <= 2 else int(parts[0])
+                        if date_month == month:
+                            month_matched = True
+                except:
+                    pass
+            
+            if month_matched:
                 fond_1s = to_float(row[1]) if len(row) > 1 else 0.0
                 print(f"  ✓ NAŠEL! fond_1s={fond_1s}, fond_0s={fond_0s}")
                 fond_0s = to_float(row[2]) if len(row) > 2 else 0.0
