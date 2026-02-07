@@ -295,7 +295,21 @@ def plan_shifts_v2(sheet_name: str):
     print("Zapisuji výsledky...")
     print('=' * 60)
     
+    # Připrav všechny změny do jednoho batch update
     write_count = 0
+    
+    # Najdi rozsah který potřebujeme
+    min_row = min(e['row'] for e in employees)
+    max_row = max(e['row'] for e in employees)
+    min_col = min(plan_cols)
+    max_col = max(plan_cols)
+    
+    # Vytvoř prázdnou mřížku
+    num_rows = max_row - min_row + 1
+    num_cols = max_col - min_col + 1
+    grid = [[None] * num_cols for _ in range(num_rows)]
+    
+    # Naplň mřížku hodnotami
     for di, col_num in enumerate(plan_cols):
         for i, emp in enumerate(employees):
             row_data = ws_data[emp['row'] - 1] if (emp['row'] - 1) < len(ws_data) else []
@@ -309,8 +323,18 @@ def plan_shifts_v2(sheet_name: str):
             # Zapiš jen pokud je prázdné NEBO je to staniční s R
             new_val = assign[i][di]
             if new_val and (orig in (None, "", 0) or (i == station_idx and new_val == "R")):
-                ws.update_cell(emp['row'], col_num, new_val)
+                grid_row = emp['row'] - min_row
+                grid_col = col_num - min_col
+                grid[grid_row][grid_col] = new_val
                 write_count += 1
+    
+    # Zapiš celou mřížku najednou (1 API call!)
+    if write_count > 0:
+        import gspread
+        start_cell = gspread.utils.rowcol_to_a1(min_row, min_col)
+        end_cell = gspread.utils.rowcol_to_a1(max_row, max_col)
+        range_notation = f"{start_cell}:{end_cell}"
+        ws.update(range_notation, grid, value_input_option='RAW')
     
     print(f"✓ Zapsáno {write_count} buněk")
     
