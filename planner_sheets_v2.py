@@ -411,17 +411,25 @@ def run_planner(employees, fixed, fixed_hours, days, year, month, station_idx):
         # Spočítej kolik bude mít po přiřazení
         future_hours = hours[i] + SHIFT_HOURS
         
-        # HLAVNÍ KRITÉRIUM: rozdíl od targetu
-        diff = abs(future_hours - target[i])
+        # Rozdíl od targetu
+        diff = future_hours - target[i]
         
-        # EXTRA penalizace za přesčas
-        if future_hours > target[i]:
-            diff *= 10.0  # Přesčas je 10x horší
+        # ASYMETRICKÁ penalizace
+        if diff > 0:
+            # Přesčas - EXTRÉMNÍ penalizace (kvadratická!)
+            score = (diff ** 2) * 100.0
+        else:
+            # Málo hodin - menší penalizace (lineární)
+            score = abs(diff) * 5.0
+        
+        # Bonus za vyrovnání: pokud je hodně pod targetem, dej mu směnu
+        if diff < -20:
+            score *= 0.1  # Silná preference
         
         # Malý jitter pro randomizaci
         jitter = random.uniform(-0.01, 0.01)
         
-        return diff + jitter
+        return score + jitter
     
     def solve_day(di):
         """Rekurzivně naplánuj den"""
@@ -484,9 +492,27 @@ def run_planner(employees, fixed, fixed_hours, days, year, month, station_idx):
         
         return fill_slots(0, set())
     
-    # Najdi řešení
-    print("Hledám řešení...")
-    MAX_TRIES = 100
+    # Najdi řešení - hledej NEJLEPŠÍ, ne první
+    print("Hledám nejlepší řešení...")
+    MAX_TRIES = 500
+    
+    best_solution = None
+    best_score = None
+    solutions_found = 0
+    
+    def calc_solution_score(sol_hours):
+        """Ohodnotí kvalitu celkového řešení"""
+        # Suma čtverců odchylek
+        total = 0.0
+        for i in range(P):
+            diff = sol_hours[i] - target[i]
+            if diff > 0:
+                # Přesčas je MNOHEM horší
+                total += (diff ** 2) * 50.0
+            else:
+                # Nedostatek je méně špatný
+                total += (abs(diff) ** 2)
+        return total
     
     for attempt in range(MAX_TRIES):
         # Reset
@@ -496,11 +522,24 @@ def run_planner(employees, fixed, fixed_hours, days, year, month, station_idx):
         random.seed(year * 1000 + month * 100 + attempt)
         
         if solve_day(0):
-            print(f"✓ Řešení nalezeno (pokus {attempt + 1})")
-            return assign, hours
+            solutions_found += 1
+            score = calc_solution_score(hours)
+            
+            if best_score is None or score < best_score:
+                best_score = score
+                best_solution = ([row[:] for row in assign], hours[:])
+                print(f"  ✓ Lepší řešení! (pokus {attempt + 1}, score={score:.1f})")
+            
+            # Ukonči po 50 řešeních nebo 200 pokusech
+            if solutions_found >= 50 or attempt >= 200:
+                break
         
-        if attempt % 10 == 0 and attempt > 0:
-            print(f"  Pokus {attempt}...")
+        if attempt % 50 == 0 and attempt > 0:
+            print(f"  Pokus {attempt}, nalezeno {solutions_found} řešení...")
+    
+    if best_solution:
+        print(f"✓ Vybráno nejlepší z {solutions_found} řešení (score={best_score:.1f})")
+        return best_solution
     
     return None
 
