@@ -39,9 +39,9 @@ BLOCK_VALUES = {"R", "DOV", "AMB", "GEN", "K", "COS", "C", "S", "POŽ"}
 HOURS_FIXED = {"R": 8.0, "AMB": 8.0, "S": 8.0, "COS": 7.5, "K": 6.0}
 
 JITTER = 0.02
-BEHIND_W = 5.0  # ZVÝŠENO - silná penalizace když má málo hodin
-OVERDUE_W = 8.0  # ZVÝŠENO - ještě silnější penalizace přesčasů
-MIX_W = 0.5  # SNÍŽENO - mix D/N je méně důležitý než hodiny
+BEHIND_W = 3.0  # Penalizace nedostatku hodin
+OVERDUE_W = 20.0  # EXTRÉMNĚ SILNÁ penalizace přesčasů - nikdo nemá mít plus když jsou jiní v minusu!
+MIX_W = 0.3  # Mix D/N je nejméně důležitý
 
 SECOND_DAY_AFTER_N_PENALTY = 2.2
 N_AFTER_D_BONUS = 1.4
@@ -398,6 +398,8 @@ def plan_shifts_from_sheets():
             if orig_value not in (None, "", 0):
                 continue
             
+            if i == 0 and assign[i][di] != "OFF":
+                print(f"DEBUG: Stará den {di+1}: assign={assign[i][di]}, orig={orig_value}")
             # Zapiš výsledek do mřížky
             new_value = "" if assign[i][di] == "OFF" else assign[i][di]
             
@@ -618,10 +620,16 @@ def run_planning_algorithm(P, D, names, target, fixed_shift, fixed, prev_tail3, 
         
         # Fairness: kolik už má oproti ostatním
         behind = (target[i] - hours[i]) / target[i] if target[i] > 0 else 0
+        
+        # ASYMETRICKÁ penalizace: přesčasy jsou MNOHEM horší než nedostatek
         if behind > 0:
+            # Má málo hodin - menší penalizace (je OK dát lidem trochu víc)
             sc -= behind * BEHIND_W
         elif behind < 0:
-            sc += abs(behind) * OVERDUE_W
+            # Má přesčas - OBROVSKÁ penalizace!
+            # Čím víc má přesčas, tím horší (kvadratická penalizace)
+            overdue = abs(behind)
+            sc += (overdue ** 2) * OVERDUE_W * 50.0
         
         # Mix D/N
         total_shifts = count[i] + 1
