@@ -106,17 +106,25 @@ def prev_year_month(year: int, month: int):
 
 
 def connect_to_sheets():
-    """Připojí se k Google Sheets"""
+    import json
+    import os
+    
     scope = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
     ]
     
-    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
-    client = gspread.authorize(creds)
+    # Načti credentials z environment variable nebo souboru
+    creds_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     
+    if creds_json:
+        creds_dict = json.loads(creds_json)
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    else:
+        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
+    
+    client = gspread.authorize(creds)
     return client.open_by_key(SPREADSHEET_ID)
-
 
 def detect_header(ws_values):
     """Najde hlavičku Jméno"""
